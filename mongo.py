@@ -1,15 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import MongoClient
 from bson import ObjectId
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 app = FastAPI()
 
-# MongoDB connection string — replace with your own!
-MONGO_URI = "mongodb://localhost:27017/"  # Or your Atlas URI
-client = AsyncIOMotorClient(MONGO_URI)
-db = client["mydatabase"]
-collection = db["users"]
+# MongoDB connection string — replace with your own! # Or your Atlas URI
+client = MongoClient("DATABASE_UR")
+db = client.user_db
+collection = db.users
 
 # Pydantic Model
 class User(BaseModel):
@@ -25,46 +29,46 @@ def user_helper(user) -> dict:
     }
 
 # Create
-@app.post("/users")
-async def create_user(user: User):
+@app.post("/create_user")
+def create_user(user: User):
     user = user.dict()
-    result = await collection.insert_one(user)
-    new_user = await collection.find_one({"_id": result.inserted_id})
+    result =  collection.insert_one(user)
+    new_user =  collection.find_one({"_id": result.inserted_id})
     return user_helper(new_user)
 
 # Read all
-@app.get("/users")
-async def get_users():
+@app.get("/get_users")
+def get_users():
     users = []
-    async for user in collection.find():
+    for user in collection.find():
         users.append(user_helper(user))
     return users
 
 # Read one
-@app.get("/users/{user_id}")
-async def get_user(user_id: str):
-    user = await collection.find_one({"_id": ObjectId(user_id)})
+@app.get("/get_user/{user_id}")
+def get_user(user_id: str):
+    user = collection.find_one({"_id": ObjectId(user_id)})
     if user:
         return user_helper(user)
     raise HTTPException(status_code=404, detail="User not found")
 
 # Update
-@app.put("/users/{user_id}")
-async def update_user(user_id: str, user: User):
+@app.put("/update_user/{user_id}")
+def update_user(user_id: str, user: User):
     user = user.dict()
-    result = await collection.update_one(
+    result = collection.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": user}
     )
     if result.modified_count == 1:
-        updated_user = await collection.find_one({"_id": ObjectId(user_id)})
+        updated_user = collection.find_one({"_id": ObjectId(user_id)})
         return user_helper(updated_user)
     raise HTTPException(status_code=404, detail="User not found")
 
 # Delete
-@app.delete("/users/{user_id}")
-async def delete_user(user_id: str):
-    result = await collection.delete_one({"_id": ObjectId(user_id)})
+@app.delete("/delete_user/{user_id}")
+def delete_user(user_id: str):
+    result = collection.delete_one({"_id": ObjectId(user_id)})
     if result.deleted_count == 1:
         return {"message": "User deleted"}
     raise HTTPException(status_code=404, detail="User not found")
